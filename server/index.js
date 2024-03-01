@@ -3,7 +3,7 @@ const dotenv = require('dotenv');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
-const bodyparser = require('body-parser');
+const cookieParser = require('cookie-parser');
 
 dotenv.config();
 
@@ -17,8 +17,24 @@ app.use(cors({
   credentials: true,
   origin: "http://localhost:5173"
 }));
-app.use(bodyparser.json());
+app.use(express.json());
+app.use(cookieParser());
 
+
+app.get('/profile', async (req, res) => {
+  const token = req.cookies.token;
+  if (!token) {
+    res.status(401).json({error: 'Not authorized'});
+  } else {
+    jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
+      if (err) {
+        res.status(401).json({error: 'Not authorized'});
+      } else {
+          res.status(200).json(decoded);
+      }
+    });
+  }
+})
 
 
 app.post('/register',async (req, res) => {
@@ -28,13 +44,14 @@ app.post('/register',async (req, res) => {
     console.log(error);
     res.status(400).json({error: 'Error inserting user'});
   } else {
-    jwt.sign({userId: data[0].id}, process.env.JWT_SECRET, {expiresIn: '1d'}, (err, token) => {
+    jwt.sign({userId: data[0].id, username}, process.env.JWT_SECRET, {expiresIn: '1d'}, (err, token) => {
       if (err) {
         res.status(400).json({error: 'Error generating token'});
         console.log()
       } else {
         res.cookie('token', token).status('201').json({
           id: data[0].id,
+          username
         });
       }
     });
