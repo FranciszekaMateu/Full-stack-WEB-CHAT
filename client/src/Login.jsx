@@ -16,34 +16,48 @@ import {
 export default function Register() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState(null);
   const {setUsername:setLoggedInUsername,setId,setIsLoginOrRegister} = useContext(UserContext)
-  async function register(ev){
+  async function login(ev){
     ev.preventDefault();
-    const {data} = await axios.post('/register',{username, password});
-    setLoggedInUsername(username);
-    setId(data.id);
+    await axios.post('/login',{username, password}).then(res =>    {
+      setId(res.data.id)
+      setLoggedInUsername(username);
+      setError(null);
+      res.data
+    }
+    ).catch(err => {
+      setError(err.response.data.error);
+    }
+    );
   }
   return (
     <div className="bg-blue-900 h-screen  flex items-center justify-center">
-    <form className="mx-auto bg-white rounded-lg py-1 px-10  flex flex-col items-center my-10  gap-3 " onSubmit={register}>
+    <form className="mx-auto bg-white rounded-lg py-1 px-10  flex flex-col items-center my-10  gap-3 " onSubmit={login}>
       <img src="./logo.png" alt="logo" className="mx-auto w-36" />
-      <h2 className="font-bold">Your private and minimalist chat</h2>
-      <h1 className="text-3xl text-center">Button</h1>
-      <p>Already have an account?</p> 
+      <h2 className="font-bold">Private and Minimalist chat</h2>
+      <h1 className="text-3xl text-center">Login</h1>
+      <p>Don't have an account?</p> 
       <button onClick={ev => {
         ev.preventDefault();
         setIsLoginOrRegister("register")
       }} className="text-blue-500 underline">Register</button>
       <Input  onChange={ev => setUsername(ev.target.value)} placeholder="Username" />
-      <Input value={password} onChange={ev => setPassword(ev.target.value)} type="password" placeholder="Confirm Password" />
-  
-    { !(password === ""    ) ? (
+      <Input value={password} onChange={ev => setPassword(ev.target.value)} type="password" placeholder="Password" />
+    { (error) ? (
+      <Alert status="error">
+        <AlertIcon />
+        <AlertTitle mr={2}>Error!</AlertTitle>
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    ): null}
+    { (password === ""    ) ? (
       <Button className="mb-2" colorScheme="gray" size="lg">
-        Register  
+        Login  
       </Button>
     ): (
 <Button  type="submit" className="mb-2"  colorScheme="blue" size="lg">
-        Register  
+        Login  
       </Button>
        
 

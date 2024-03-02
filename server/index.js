@@ -4,9 +4,10 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
+const bcrypt = require('bcryptjs');
 
 dotenv.config();
-
+const bcryptSalt = bcrypt.genSaltSync(10);
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 // Conection with data base
@@ -36,10 +37,40 @@ app.get('/profile', async (req, res) => {
   }
 })
 
-
+app.post('/login', async (req, res) => {
+  const {username, password} = req.body;
+  const {data, error} = await supabase.from('Users').select().eq('Username', username);
+  if (error) {
+    res.status(400).json({error: 'Error getting user'});
+  } else if (data.length === 0) {
+    res.status(400).json({error: 'User not found'});
+  } else if (!bcrypt.compareSync(password, data[0].password)) {
+    res.status(400).json({error: 'Invalid password'});
+  } else {
+    jwt.sign({userId: data[0].id, username}, process.env.JWT_SECRET, {expiresIn: '1d'}, (err, token) => {
+      if (err) {
+        res.status(400).json({error: 'Error generating token'});
+      } else {
+        res.cookie('token', token,{sameSite: 'none',secure:true}).status('200').json({
+          id: data[0].id,
+          username
+        });
+      }
+    });
+  }
+})
 app.post('/register',async (req, res) => {
  const {username, password} = req.body;
- const {data, error} = await supabase.from('Users').insert([{Username: username, password: password}]).select();
+ const check = await supabase.from('Users').select().eq('Username', username);
+  if (check.data.length > 0) {
+    res.status(400).json({error: 'Username already exists'});
+    return;
+  }
+  else {
+  const hashedPassword = bcrypt.hashSync(password, bcryptSalt);
+ const {data, error} = await supabase.from('Users').insert([{
+   Username: username, 
+   password: hashedPassword }]).select();
   if (error) {
     console.log(error);
     res.status(400).json({error: 'Error inserting user'});
@@ -49,35 +80,16 @@ app.post('/register',async (req, res) => {
         res.status(400).json({error: 'Error generating token'});
         console.log()
       } else {
-        res.cookie('token', token).status('201').json({
+        res.cookie('token', token,{sameSite:'none',secure:true}).status('201').json({
           id: data[0].id,
           username
         });
       }
     });
   }
+  }
 });
-// app.post('/login', async (req, res) => {
-//   const {username, password} = req.body;
-//   const {data, error} = await supabase.from('Users').select().eq('Username', username);
-//   if (error) {
-//     res.status(400).json({error: 'Error getting user'});
-//   } else if (data.length === 0) {
-//     res.status(400).json({error: 'User not found'});
-//   } else if (data[0].password !== password) {
-//     res.status(400).json({error: 'Invalid password'});
-//   } else {
-//     jwt.sign({userId: data[0].id}, process.env.JWT_SECRET, {expiresIn: '1d'}, (err, token) => {
-//       if (err) {
-//         res.status(400).json({error: 'Error generating token'});
-//       } else {
-//         res.cookie('token', token).status('200').json({
-//           id: data[0].id,
-//         });
-//       }
-//     });
-//   }
-// }
+
 // A route for check if the username is used
 app.post('/checkUser', async (req, res) => {
 const {username} = req.body;
